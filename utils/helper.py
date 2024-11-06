@@ -26,8 +26,8 @@ class Helper:
             os.mkdir(self.folder_path)  # 尝试创建文件夹来保存模型
         except FileExistsError:
             logger.info('Folder already exists')  # 如果文件夹已存在，则输出日志
-        if not self.params.get('environment_name', False):  # 如果没有指定环境名称，使用模型名称
-            self.params['environment_name'] = self.name
+        # if not self.params.get('environment_name', False):  # 如果没有指定环境名称，使用模型名称
+        #     self.params['environment_name'] = self.name
         self.params['current_time'] = self.current_time  # 保存当前时间
         self.params['folder_path'] = self.folder_path  # 保存文件夹路径
 

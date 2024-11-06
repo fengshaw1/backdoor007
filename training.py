@@ -7,7 +7,7 @@ import logging  # 导入logging模块，用于日志记录
 from utils.utils import *
 from utils.image_helper import ImageHelper
 from utils.text_helper import TextHelper  # 导入自定义的TextHelper类，用于处理文本相关的操作
-
+import shutil
 # 创建一个logger对象，用于日志记录
 logger = logging.getLogger('logger')
 
@@ -62,7 +62,7 @@ def run(helper):
     decay = float(helper.params['decay'])
     epochs = int(helper.params['epochs'])
     helper.load_cifar10(batch_size)
-    model = models.densenet201(num_classes=len(helper.classes))
+    model = models.resnet18(num_classes=len(helper.classes))
     model.to(device)
 
     if helper.params.get('resumed_model', False):
@@ -104,12 +104,17 @@ if __name__ == '__main__':  # 如果是主程序运行
     table = create_table(helper.params)
     writer.add_text('Model Params', table)
 
+    helper.params['tb_name'] = args.name
+    with open(f'{helper.folder_path}/params.yaml', 'w') as f:
+        yaml.dump(helper.params, f)
+
     try:
         run(helper)
+        print(f'You can find files in {helper.folder_path}. TB graph: {args.name}')
     except KeyboardInterrupt:
         answer = prompt('Delete the repo? (y/n): ')
         if answer in ['Y', 'y', 'yes']:
-            os.rmdir(helper.folder_path)
-            print(f"Fine. Deleted: {helper.folder_path}")
+            shutil.rmtree(helper.folder_path)
+            shutil.rmtree(f'runs/{args.name}')
         else:
-            logger.info("Aborted training.")
+            logger.info(f"Aborted training. Results: {helper.folder_path}. TB graph: {args.name}")
