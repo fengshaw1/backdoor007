@@ -4,6 +4,7 @@ import torch  # 导入PyTorch库，用于深度学习计算
 from tensorboardX import SummaryWriter  # 导入SummaryWriter，用于将日志写入TensorBoard
 import yaml  # 导入yaml模块，用于解析YAML配置文件
 import logging  # 导入logging模块，用于日志记录
+from utils.image_helper import ImageHelper
 from utils.text_helper import TextHelper  # 导入自定义的TextHelper类，用于处理文本相关的操作
 
 # 创建一个logger对象，用于日志记录
@@ -12,44 +13,74 @@ logger = logging.getLogger('logger')
 # 设置设备为GPU（如果可用）或CPU
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+def train(run_helper: ImageHelper, model: nn.Module, optimizer, criterion, epoch):
+    train_loader = run_helper.train_loader
+    model.train()
+    running_loss = 0.0
+    for i, data in enumerate(train_loader, 0):
+        # get the inputs
+        inputs, labels = data
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+        # zero the parameter gradients
+        optimizer.zero_grad()
+        # forward + backward + optimize
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        # logger.info statistics
+        running_loss += loss.item()
+        if i > 0 and i % 1000 == 0:
+            logger.info('[%d, %5d] loss: %.3f' %
+                  (epoch + 1, i + 1, running_loss / 2000))
+            # plot(epoch * len(trainloader) + i, running_loss, 'Train Loss')
+            running_loss = 0.0
+def test(run_helper: ImageHelper, model: nn.Module):
+    model.eval()
+    correct = 0
+    total = 0
+    i = 0
+    with torch.no_grad():
+        for data in tqdm(run_helper.test_loader):
+            inputs, labels = data
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+            outputs = model(inputs)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    main_acc = 100 * correct / total
+    logger.info(main_acc)
+    return 100 * correct / total
+def run(helper):
+    batch_size = int(helper.params['batch_size'])
+    lr = float(helper.params['lr'])
+    decay = float(helper.params['decay'])
+    epochs = int(helper.params['epochs'])
+    helper.load_cifar10(batch_size)
+    model = models.resnet18(num_classes=len(helper.classes))
+    model.to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=decay)
+    for epoch in range(1, epochs+1):
+        train(helper, model, optimizer, criterion, epoch=epoch)
+        test(helper, model)
+
+
 if __name__ == '__main__':  # 如果是主程序运行
-    # 创建命令行参数解析器
-    parser = argparse.ArgumentParser(description='PPDL')
-
-    # 添加--params参数，用于指定配置文件路径，默认值为'utils/params.yaml'
-    parser.add_argument('--params', dest='params', default='utils/params.yaml')
-
-    # 添加--name参数，用于指定实验的名称，是必填项
-    parser.add_argument('--name', dest='name', required=True)
-
-    # 解析命令行传入的参数
-    args = parser.parse_args()
-
-    # 获取当前时间并格式化，格式为'Mon.XX_HH.MM.SS'，例如 'Nov.05_12.30.45'
-    d = datetime.now().strftime('%b.%d_%H.%M.%S')
-
-    # 创建一个TensorBoard的SummaryWriter，用于将日志数据写入到指定目录
-    writer = SummaryWriter(log_dir=f'runs/{args.name}')
-
-    # 打开YAML配置文件，读取其中的内容
     with open(args.params) as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)  # 解析YAML文件为Python字典
+        params = yaml.load(f)
 
-    # 创建TextHelper对象，用于处理与文本相关的操作
-    helper = TextHelper(current_time=d, params=params, name='text')
+    if params['data'] == 'image':
+        helper = ImageHelper(current_time=d, params=params, name='image')
+    else:
+        helper = TextHelper(current_time=d, params=params, name='text')
+        helper.corpus = torch.load(helper.params['corpus'])
+        logger.info(helper.corpus.train.shape)
 
-    # 加载训练语料库（torch文件），并将其存储在helper对象中
-    helper.corpus = torch.load(helper.params['corpus'])
-
-    # 打印训练语料库的形状（即数据集的大小）
-    logger.info(helper.corpus.train.shape)
-
-    # 为日志添加文件和控制台输出处理器，日志将记录到'log.txt'文件和终端
     logger.addHandler(logging.FileHandler(filename=f'{helper.folder_path}/log.txt'))
     logger.addHandler(logging.StreamHandler())
-
-    # 设置日志的最低记录级别为DEBUG，表示记录所有级别的日志
     logger.setLevel(logging.DEBUG)
-
-    # 记录当前的文件夹路径
     logger.info(f'current path: {helper.folder_path}')
+    run(helper)
