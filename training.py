@@ -11,6 +11,8 @@ from utils.text_helper import TextHelper  # 导入自定义的TextHelper类，�
 # 创建一个logger对象，用于日志记录
 logger = logging.getLogger('logger')
 
+from prompt_toolkit import prompt
+
 # 设置设备为GPU（如果可用）或CPU
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -102,4 +104,12 @@ if __name__ == '__main__':  # 如果是主程序运行
     table = create_table(helper.params)
     writer.add_text('Model Params', table)
 
-    run(helper)
+    try:
+        run(helper)
+    except KeyboardInterrupt:
+        answer = prompt('Delete the repo? (y/n): ')
+        if answer in ['Y', 'y', 'yes']:
+            os.rmdir(helper.folder_path)
+            print(f"Fine. Deleted: {helper.folder_path}")
+        else:
+            logger.info("Aborted training.")

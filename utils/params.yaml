@@ -7,3 +7,4 @@ save_on_epochs: [5, 10, 50]
 optimizer: Adam
 mu: 0.9
 data: image
+save_model: True
