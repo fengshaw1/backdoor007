@@ -67,16 +67,19 @@ class Helper:
         for p in parameters:
             p.grad.data.mul_(clip_coef)  # 对梯度进行裁剪
 
-    # 计算隐私保证（差分隐私SGD）
-    def compute_rdp(self):
-        from compute_dp_sgd_privacy import apply_dp_sgd_analysis  # 导入差分隐私计算函数
-        N = self.dataset_size  # 获取数据集大小
-        logger.info(f'Dataset size: {N}. Computing RDP guarantees.')  # 输出数据集大小
-        q = self.params['batch_size'] / N  # q：采样比例
-        orders = ([1.25, 1.5, 1.75, 2., 2.25, 2.5, 3., 3.5, 4., 4.5] +
-                  list(range(5, 64)) + [128, 256, 512])  # 不同的隐私保证阶数
-        steps = int(math.ceil(self.params['epochs'] * N / self.params['batch_size']))  # 计算步骤数
-        apply_dp_sgd_analysis(q, self.params['z'], steps, orders, 1e-6)  # 计算RDP隐私保证
+    # def compute_rdp(self):
+    #     from compute_dp_sgd_privacy import apply_dp_sgd_analysis
+    #
+    #     N = self.dataset_size
+    #     logger.info(f'Dataset size: {N}. Computing RDP guarantees.')
+    #     q = self.params['batch_size'] / N  # q - the sampling ratio.
+    #
+    #     orders = ([1.25, 1.5, 1.75, 2., 2.25, 2.5, 3., 3.5, 4., 4.5] +
+    #               list(range(5, 64)) + [128, 256, 512])
+    #
+    #     steps = int(math.ceil(self.params['epochs'] * N / self.params['batch_size']))
+    #
+    #     apply_dp_sgd_analysis(q, self.params['z'], steps, orders, 1e-6)
 
     # 梯度裁剪（防止梯度爆炸）
     @staticmethod
