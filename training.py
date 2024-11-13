@@ -1,20 +1,35 @@
-from datetime import datetime  # 导入datetime模块，用于获取当前时间
-import argparse  # 导入argparse模块，用于解析命令行参数
-import torch  # 导入PyTorch库，用于深度学习计算
+import json
+from datetime import datetime
+import argparse
+from scipy import ndimage
+import torch
+import torchvision
+import os
+import torchvision.transforms as transforms
+from collections import defaultdict, OrderedDict
 from torch.utils.tensorboard import SummaryWriter
-import yaml  # 导入yaml模块，用于解析YAML配置文件
-import logging  # 导入logging模块，用于日志记录
+import torchvision.models as models
+import numpy as np
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from tqdm import tqdm as tqdm
+import time
+import random
+import yaml
+import logging
+import shutil
+
 from utils.utils import *
 from utils.image_helper import ImageHelper
-from utils.text_helper import TextHelper  # 导入自定义的TextHelper类，用于处理文本相关的操作
-import shutil
-# 创建一个logger对象，用于日志记录
+from utils.text_helper import TextHelper
 logger = logging.getLogger('logger')
-
 from prompt_toolkit import prompt
 
-# 设置设备为GPU（如果可用）或CPU
+
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 def train(run_helper: ImageHelper, model: nn.Module, optimizer, criterion, epoch):
     train_loader = run_helper.train_loader
@@ -23,13 +38,16 @@ def train(run_helper: ImageHelper, model: nn.Module, optimizer, criterion, epoch
     for i, data in enumerate(train_loader, 0):
         # get the inputs
         inputs, labels = data
+
         inputs = inputs.to(device)
         labels = labels.to(device)
         # zero the parameter gradients
         optimizer.zero_grad()
+
         # forward + backward + optimize
         outputs = model(inputs)
         loss = criterion(outputs, labels)
+
         loss.backward()
         optimizer.step()
         # logger.info statistics
@@ -37,15 +55,17 @@ def train(run_helper: ImageHelper, model: nn.Module, optimizer, criterion, epoch
         if i > 0 and i % 200 == 0:
             logger.info('[%d, %5d] loss: %.3f' %
                   (epoch + 1, i + 1, running_loss))
-            # plot(epoch * len(trainloader) + i, running_loss, 'Train Loss')
             plot(writer, epoch * len(train_loader) + i, running_loss, 'Train Loss')
             running_loss = 0.0
+
+
 def test(run_helper: ImageHelper, model: nn.Module, criterion, epoch):
     model.eval()
     correct = 0
     total = 0
     total_loss = 0
     i = 0
+
     with torch.no_grad():
         for data in tqdm(run_helper.test_loader):
             inputs, labels = data
@@ -61,17 +81,19 @@ def test(run_helper: ImageHelper, model: nn.Module, criterion, epoch):
     logger.info(f'Epoch {epoch}. Accuracy: {main_acc}%')
     plot(writer, x=epoch, y=main_acc, name="accuracy")
     return main_acc, total_loss
-def run(helper : ImageHelper):
+
+
+def run(helper: ImageHelper, writer: SummaryWriter):
     batch_size = int(helper.params['batch_size'])
     lr = float(helper.params['lr'])
     decay = float(helper.params['decay'])
     epochs = int(helper.params['epochs'])
     momentum = int(helper.params['momentum'])
 
-    # 加载数据
+    # load data
     helper.load_cifar10(batch_size)
 
-    # 创建模型
+    # create model
     model = models.resnet18(num_classes=len(helper.classes))
     model.to(device)
 
@@ -92,46 +114,55 @@ def run(helper : ImageHelper):
 
     for epoch in range(helper.start_epoch, epochs+1):
         train(helper, model, optimizer, criterion, epoch=epoch)
-
         acc, loss = test(helper, model, criterion, epoch)
         if helper.params['scheduler']:
             scheduler.step(epoch)
         writer.flush()
         helper.save_model(model, epoch, acc)
 
-if __name__ == '__main__':  # 如果是主程序运行
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='PPDL')
+    parser.add_argument('--params', dest='params', default='utils/params.yaml')
+    parser.add_argument('--name', dest='name', required=True)
+
+    args = parser.parse_args()
+    d = datetime.now().strftime('%b.%d_%H.%M.%S')
+    wr = SummaryWriter(log_dir=f'runs/{args.name}')
+
     with open(args.params) as f:
         params = yaml.load(f)
 
     if params['data'] == 'image':
-        helper = ImageHelper(current_time=d, params=params, name='image')
+        helper_outer = ImageHelper(current_time=d, params=params, name='image')
     else:
-        helper = TextHelper(current_time=d, params=params, name='text')
-        helper.corpus = torch.load(helper.params['corpus'])
-        logger.info(helper.corpus.train.shape)
+        helper_outer = TextHelper(current_time=d, params=params, name='text')
+        helper_outer.corpus = torch.load(helper_outer.params['corpus'])
+        logger.info(helper_outer.corpus.train.shape)
 
-    logger.addHandler(logging.FileHandler(filename=f'{helper.folder_path}/log.txt'))
+
+    logger.addHandler(logging.FileHandler(filename=f'{helper_outer.folder_path}/log.txt'))
     logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.DEBUG)
-    logger.info(f'current path: {helper.folder_path}')
+    logger.info(f'current path: {helper_outer.folder_path}')
 
-    table = create_table(helper.params)
-    writer.add_text('Model Params', table)
+    table = create_table(helper_outer.params)
+    wr.add_text('Model Params', table)
 
-    helper.params['tb_name'] = args.name
-    with open(f'{helper.folder_path}/params.yaml', 'w') as f:
-        yaml.dump(helper.params, f)
-
+    helper_outer.params['tb_name'] = args.name
+    with open(f'{helper_outer.folder_path}/params.yaml', 'w') as f:
+        yaml.dump(helper_outer.params, f)
     try:
-        run(helper)
-        print(f'You can find files in {helper.folder_path}. TB graph: {args.name}')
+        run(helper_outer, wr)
+        print(f'You can find files in {helper_outer.folder_path}. TB graph: {args.name}')
     except KeyboardInterrupt:
-        writer.flush()
+        wr.flush()
         answer = prompt('\nDelete the repo? (y/n): ')
         if answer in ['Y', 'y', 'yes']:
-            shutil.rmtree(helper.folder_path)
-            shutil.rmtree(f'runs/{args.name}')
-        else:
-            logger.info(f"Aborted training. Results: {helper.folder_path}. TB graph: {args.name}")
 
-    writer.flush()
+            shutil.rmtree(helper_outer.folder_path)
+            shutil.rmtree(f'runs/{args.name}')
+            print(f"Fine. Deleted: {helper_outer.folder_path}")
+        else:
+            logger.info(f"Aborted training. Results: {helper_outer.folder_path}. TB graph: {args.name}")
+    wr.flush()
