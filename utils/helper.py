@@ -3,7 +3,7 @@ import logging
 logger = logging.getLogger('logger')
 
 from shutil import copyfile
-
+import torch.optim as optim
 import math
 import torch
 
@@ -172,6 +172,17 @@ class Helper:
             size += layer.view(-1).shape[0]
 
         return sum_var
+
+
+    def get_optimizer(self, model):
+        if self.optimizer == 'SGD':
+            optimizer = optim.SGD(model.parameters(), lr=self.lr,
+                                  weight_decay=self.decay, momentum=self.momentum)
+        elif self.optimizer == 'Adam':
+            optimizer = optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.decay)
+        else:
+            raise ValueError(f'No optimizer: {self.optimizer}')
+
 
     def check_resume_training(self, model):
         if self.resumed_model:
