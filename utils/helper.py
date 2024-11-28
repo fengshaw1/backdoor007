@@ -197,7 +197,7 @@ class Helper:
             self.start_epoch = loaded_params['epoch']
             if lr:
                 self.lr = loaded_params.get('lr', self.lr)
-            logger.info(f"Loaded parameters from saved model: LR is"
+            logger.warning(f"Loaded parameters from saved model: LR is"
                         f" {self.lr} and current epoch is {self.start_epoch}")
 
     def flush_writer(self):
