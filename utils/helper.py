@@ -182,7 +182,7 @@ class Helper:
             optimizer = optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.decay)
         else:
             raise ValueError(f'No optimizer: {self.optimizer}')
-
+        return optimizer
 
     def check_resume_training(self, model):
         if self.resumed_model:
