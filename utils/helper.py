@@ -43,6 +43,7 @@ class Helper:
         self.backdoor = self.params.get('backdoor', False)
         self.poison_number = self.params.get('poison_number', 8)
         self.log = self.params.get('log', True)
+        self.tb = self.params.get('tb', True)
         self.start_epoch = 1
 
         if self.log:
@@ -203,7 +204,7 @@ class Helper:
                         f" {self.lr} and current epoch is {self.start_epoch}")
 
     def flush_writer(self):
-        if self.log:
+        if self.writer:
             self.writer.flush()
 
     def plot(self, x, y, name):
