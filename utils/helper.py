@@ -3,11 +3,12 @@ import logging
 logger = logging.getLogger('logger')
 
 from shutil import copyfile
-import torch.optim as optim
+
 import math
 import torch
 
 import os
+import torch.optim as optim
 
 
 class Helper:
@@ -38,12 +39,14 @@ class Helper:
         self.optimizer = self.params.get('optimizer', None)
         self.scheduler = self.params.get('scheduler', False)
         self.resumed_model = self.params.get('resumed_model', False)
-        self.poisoning_proportion = self.params.get('poisoning_proportion', False)
 
+        self.poisoning_proportion = self.params.get('poisoning_proportion', False)
         self.backdoor = self.params.get('backdoor', False)
         self.poison_number = self.params.get('poison_number', 8)
         self.log = self.params.get('log', True)
         self.tb = self.params.get('tb', True)
+        self.random = self.params.get('random', True)
+
         self.start_epoch = 1
 
         if self.log:
@@ -61,6 +64,7 @@ class Helper:
         self.params['folder_path'] = self.folder_path
 
     def save_model(self, model=None, epoch=0, val_loss=0):
+
         if self.params['save_model'] and self.log:
             # save_model
             logger.info("saving model")
@@ -181,7 +185,6 @@ class Helper:
 
         return sum_var
 
-
     def get_optimizer(self, model):
         if self.optimizer == 'SGD':
             optimizer = optim.SGD(model.parameters(), lr=self.lr,
@@ -190,6 +193,7 @@ class Helper:
             optimizer = optim.Adam(model.parameters(), lr=self.lr, weight_decay=self.decay)
         else:
             raise ValueError(f'No optimizer: {self.optimizer}')
+
         return optimizer
 
     def check_resume_training(self, model, lr=False):
@@ -200,6 +204,7 @@ class Helper:
             self.start_epoch = loaded_params['epoch']
             if lr:
                 self.lr = loaded_params.get('lr', self.lr)
+
             logger.warning(f"Loaded parameters from saved model: LR is"
                         f" {self.lr} and current epoch is {self.start_epoch}")
 
@@ -213,3 +218,4 @@ class Helper:
             self.flush_writer()
         else:
             return False
+

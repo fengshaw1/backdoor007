@@ -93,45 +93,60 @@ def poison_test_random(batch, target, poisoned_number, poisoning, test=False):
     return (batch, target)
 
 
+
 def poison_pattern(batch, target, poisoned_number, poisoning, test=False):
     """
     Poison the training batch by removing neighboring value with
     prob = poisoning and replacing it with the value with the pattern
     """
     for iterator in range(0, len(batch) - 1, 2):
+
         if random.random() <= poisoning:
             batch[iterator + 1] = batch[iterator]
             for i in range(3):
                 batch[iterator + 1][i][2][25] = 1
                 batch[iterator + 1][i][2][24] = 0
                 batch[iterator + 1][i][2][23] = 1
+
                 batch[iterator + 1][i][6][25] = 1
                 batch[iterator + 1][i][6][24] = 0
                 batch[iterator + 1][i][6][23] = 1
+
                 batch[iterator + 1][i][5][24] = 1
                 batch[iterator + 1][i][4][23] = 0
                 batch[iterator + 1][i][3][24] = 1
+
             target[iterator + 1] = poisoned_number
     return True
+
+
 def poison_test_pattern(batch, target, poisoned_number):
     """
     Poison the test set by adding patter to every image and changing target
     for everyone.
     """
     for iterator in range(0, len(batch)):
+
         for i in range(3):
             batch[iterator] = batch[iterator]
             batch[iterator][i][2][25] = 1
             batch[iterator][i][2][24] = 0
             batch[iterator][i][2][23] = 1
+
             batch[iterator][i][6][25] = 1
             batch[iterator][i][6][24] = 0
             batch[iterator][i][6][23] = 1
+
             batch[iterator][i][5][24] = 1
             batch[iterator][i][4][23] = 0
             batch[iterator][i][3][24] = 1
+
             target[iterator] = poisoned_number
     return True
+
+
+
+
 
 class SubsetSampler(Sampler):
     r"""Samples elements randomly from a given list of indices, without replacement.

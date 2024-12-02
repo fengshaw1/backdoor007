@@ -5,7 +5,6 @@ decay: 0.0005
 epochs: 300
 save_on_epochs: []
 optimizer: SGD
-
 log_interval: 50
 
 data: image
@@ -14,9 +13,13 @@ data: image
 save_model: False
 scheduler: False
 
+#resumed_model: model_image_Aug.15_11.40.44/model_last.pt.tar
+
 poisoning_proportion: 1
 poison_number: 8
 backdoor: True
 
 log: False
-tb: True
+tb: False
+
+random: False
