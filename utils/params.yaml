@@ -9,7 +9,7 @@ log_interval: 50
 
 data: image
 
-
+# 需要保存模型此选项设置为True
 save_model: False
 scheduler: False
 
