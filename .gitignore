@@ -3,5 +3,6 @@
 .DS_Store
 .vscode/
 runs/
+data/
 saved_models/
 __pycache__
