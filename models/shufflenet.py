@@ -98,4 +98,3 @@ def ShuffleNetG3():
         'groups': 3
     }
     return ShuffleNet(cfg)
-
