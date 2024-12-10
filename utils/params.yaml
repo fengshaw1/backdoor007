@@ -2,15 +2,15 @@ batch_size: 128
 lr: 0.0001
 momentum: 0.9
 decay: 0.0005
-epochs: 350
+epochs: 500
 save_on_epochs: []
 optimizer: SGD
 log_interval: 20
 
-save_model: False
+save_model: True
 scheduler: False
 
-resumed_model: model_image_Aug.15_11.40.44/model_last.pt.tar
+resumed_model: model_image_Dec.09_10.46.38/model_last.pt.tar
 
 
 data: cifar
@@ -23,7 +23,7 @@ scale_threshold: 0.1
 
 normalize: loss+
 
-log: False
+log: True
 tb: False
 
 random: False
