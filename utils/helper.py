@@ -271,10 +271,17 @@ class Helper:
             loss.backward()
             grads = self.copy_grad(model)
         return loss, grads
-    # cos = torch.cosine_similarity(normal_grad, bck_grad, dim=0)
-    # norm_norm = torch.norm(normal_grad)
-    # bck_norm = torch.norm(bck_grad)
-    # print(cos.item())
+
+    def compute_back_loss_grad(self, model, criterion, inputs, normal_labels, bck_labels, grads=True):
+        outputs, outputs_latent = model(inputs)
+        loss = criterion(outputs, bck_labels)
+        loss = torch.topk(loss[bck_labels != normal_labels], 3, largest=False)[0]
+        loss = loss.sum()/normal_labels.shape[0]
+        if grads:
+            loss.backward()
+            grads = self.copy_grad(model)
+        return loss, grads
+
     def compute_latent_similarity(self, model, fixed_model, inputs, grads=True):
          # cosine = nn.CosineEmbeddingLoss()
         with torch.no_grad():
