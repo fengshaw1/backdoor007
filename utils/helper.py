@@ -56,6 +56,7 @@ class Helper:
         self.data = self.params.get('data', 'cifar')
         self.scale_threshold = self.params.get('scale_threshold', 1)
         self.normalize = self.params.get('normalize', 'none')
+        self.losses = self.params.get('losses', 'normal')
 
         self.start_epoch = 1
         self.fixed_model = None
@@ -208,6 +209,7 @@ class Helper:
 
     def check_resume_training(self, model, lr=False):
         from models.resnet import ResNet18
+
         if self.resumed_model:
             logger.info('Resuming training...')
             loaded_params = torch.load(f"saved_models/{self.resumed_model}")
@@ -264,25 +266,29 @@ class Helper:
 
         return True
 
-    def compute_loss_grad(self, model, criterion, inputs, labels, grads=True):
+    def compute_normal_loss(self, model, criterion, inputs, labels, grads=True, **kwargs):
         outputs, outputs_latent = model(inputs)
         loss = criterion(outputs, labels).mean()
         if grads:
             loss.backward()
             grads = self.copy_grad(model)
+
         return loss, grads
 
-    def compute_back_loss_grad(self, model, criterion, inputs, normal_labels, bck_labels, grads=True):
+    def compute_backdoor_loss(self, model, criterion, inputs, normal_labels, bck_labels, grads=True):
         outputs, outputs_latent = model(inputs)
         loss = criterion(outputs, bck_labels)
-        loss = torch.topk(loss[bck_labels != normal_labels], 3, largest=False)[0]
+        # loss = torch.topk(loss[bck_labels != normal_labels], 3, largest=False)[0]
         loss = loss.sum()/normal_labels.shape[0]
+
         if grads:
             loss.backward()
             grads = self.copy_grad(model)
+
         return loss, grads
 
-    def compute_latent_similarity(self, model, fixed_model, inputs, grads=True):
+
+    def compute_latent_similarity(self, model, fixed_model, inputs, grads=True, **kwargs):
          # cosine = nn.CosineEmbeddingLoss()
         with torch.no_grad():
             _, fixed_latent = fixed_model(inputs)
@@ -291,9 +297,10 @@ class Helper:
         if grads:
             loss.backward()
             grads = self.copy_grad(model)
+
         return loss, grads
 
-    def compute_norm(self, model, fixed_model, inputs, grads=True):
+    def compute_latent_fixed_loss(self, model, fixed_model, inputs, grads=True, **kwargs):
         with torch.no_grad():
             _, fixed_latent = fixed_model(inputs)
         _, latent = model(inputs)
@@ -301,7 +308,37 @@ class Helper:
         if grads:
             loss.backward()
             grads = self.copy_grad(model)
+
         return loss, grads
+
+    def compute_latent_loss(self, model, inputs, inputs_back, grads=True, **kwargs):
+        _, latent = model(inputs)
+        _, latent_bck = model(inputs_back)
+        loss = torch.norm(latent-latent_bck, dim=1).mean()
+        if grads:
+            loss.backward()
+            grads = self.copy_grad(model)
+        return loss, grads
+
+    def compute_losses(self, tasks, model, criterion, inputs, inputs_back,
+                       labels, labels_back, fixed_model, compute_grad=True):
+        grads = {}
+        loss_data = {}
+        for t in tasks:
+            if t == 'normal':
+                loss_data[t], grads[t] = self.compute_normal_loss(model, criterion, inputs, labels, grads=compute_grad)
+            elif t == 'backdoor':
+                loss_data[t], grads[t] = self.compute_backdoor_loss(model, criterion, inputs, labels, labels_back,
+                                                                    grads=compute_grad)
+            elif t == 'latent_fixed':
+                loss_data[t], grads[t] = self.compute_latent_fixed_loss(model, fixed_model, inputs, grads=compute_grad)
+            elif t == 'latent':
+                loss_data[t], grads[t] = self.compute_latent_loss(model, inputs, inputs_back, grads=compute_grad)
+        return loss_data, grads
+    # cos = torch.cosine_similarity(normal_grad, bck_grad, dim=0)
+    # norm_norm = torch.norm(normal_grad)
+    # bck_norm = torch.norm(bck_grad)
+    # print(cos.item())
 
     def estimate_fisher(self, model, data_loader, sample_size, batch_size=32):
         # sample loglikelihoods from the dataset.
