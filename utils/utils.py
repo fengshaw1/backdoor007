@@ -122,6 +122,14 @@ def poison_pattern(batch, target, poisoned_number, poisoning, test=False):
     return batch, target
 
 
+def poison_train(dataset, inputs, labels, poisoned_number, poisoning):
+    if dataset == 'cifar':
+        return poison_pattern(inputs, labels, poisoned_number,
+                                                       poisoning)
+    elif dataset == 'mnist':
+        return poison_pattern_mnist(inputs, labels, poisoned_number,
+                              poisoning)
+
 def poison_test_pattern(batch, target, poisoned_number):
     """
     Poison the test set by adding patter to every image and changing target

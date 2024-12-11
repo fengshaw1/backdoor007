@@ -56,10 +56,12 @@ class Helper:
         self.data = self.params.get('data', 'cifar')
         self.scale_threshold = self.params.get('scale_threshold', 1)
         self.normalize = self.params.get('normalize', 'none')
+
         self.losses = self.params.get('losses', 'normal')
 
         self.start_epoch = 1
         self.fixed_model = None
+        self.ALL_TASKS =  ['backdoor', 'normal', 'latent_fixed', 'latent']
 
         if self.log:
             try:
@@ -275,11 +277,11 @@ class Helper:
 
         return loss, grads
 
-    def compute_backdoor_loss(self, model, criterion, inputs, normal_labels, bck_labels, grads=True):
-        outputs, outputs_latent = model(inputs)
-        loss = criterion(outputs, bck_labels)
+    def compute_backdoor_loss(self, model, criterion, inputs_back, normal_labels, bck_labels, grads=True):
+        outputs, outputs_latent = model(inputs_back)
+        loss = criterion(outputs, bck_labels).mean()
         # loss = torch.topk(loss[bck_labels != normal_labels], 3, largest=False)[0]
-        loss = loss.sum()/normal_labels.shape[0]
+        # loss = loss.sum()/normal_labels.shape[0]
 
         if grads:
             loss.backward()
@@ -287,9 +289,7 @@ class Helper:
 
         return loss, grads
 
-
-    def compute_latent_similarity(self, model, fixed_model, inputs, grads=True, **kwargs):
-         # cosine = nn.CosineEmbeddingLoss()
+    def compute_latent_cosine_similarity(self, model, fixed_model, inputs, grads=True, **kwargs):
         with torch.no_grad():
             _, fixed_latent = fixed_model(inputs)
         _, latent = model(inputs)
@@ -318,23 +318,31 @@ class Helper:
         if grads:
             loss.backward()
             grads = self.copy_grad(model)
+
         return loss, grads
 
     def compute_losses(self, tasks, model, criterion, inputs, inputs_back,
                        labels, labels_back, fixed_model, compute_grad=True):
         grads = {}
         loss_data = {}
+        if not compute_grad:
+            tasks = ['normal', 'backdoor', 'latent_fixed', 'latent']
         for t in tasks:
+
             if t == 'normal':
                 loss_data[t], grads[t] = self.compute_normal_loss(model, criterion, inputs, labels, grads=compute_grad)
             elif t == 'backdoor':
-                loss_data[t], grads[t] = self.compute_backdoor_loss(model, criterion, inputs, labels, labels_back,
+                loss_data[t], grads[t] = self.compute_backdoor_loss(model, criterion, inputs_back, labels, labels_back,
                                                                     grads=compute_grad)
             elif t == 'latent_fixed':
                 loss_data[t], grads[t] = self.compute_latent_fixed_loss(model, fixed_model, inputs, grads=compute_grad)
             elif t == 'latent':
                 loss_data[t], grads[t] = self.compute_latent_loss(model, inputs, inputs_back, grads=compute_grad)
+
         return loss_data, grads
+
+
+
     # cos = torch.cosine_similarity(normal_grad, bck_grad, dim=0)
     # norm_norm = torch.norm(normal_grad)
     # bck_norm = torch.norm(bck_grad)
