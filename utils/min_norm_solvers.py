@@ -200,7 +200,9 @@ class MinNormSolver:
             scale[t] = float(sol[zi])
         for t in tasks:
             running_scale[t] += scale[t] / log_interval
+
         return scale
+
 
 def gradient_normalizers(grads, losses, normalization_type):
     gn = {}
